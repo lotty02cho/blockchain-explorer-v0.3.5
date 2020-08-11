@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>유통흐름분석</title>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.min.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://cdn.rawgit.com/newrelic-forks/d3-plugins-sankey/master/sankey.js"></script>
+    <script src="http://cdn.rawgit.com/misoproject/d3.chart/master/d3.chart.min.js"></script>
+    <script src="http://cdn.rawgit.com/q-m/d3.chart.sankey/master/d3.chart.sankey.min.js"></script>
+    <style>
+      ::-webkit-scrollbar {
+        width: 8px; 
+        height: 8px; 
+        border: 3px solid #fff;
+      }
+      ::-webkit-scrollbar-button:start:decrement, 
+      ::-webkit-scrollbar-button:end:increment {
+        display: block; 
+        height: 10px; 
+        background:#efefef
+      }
+      ::-webkit-scrollbar-track {
+        background: #efefef; 
+        -webkit-border-radius: 10px; 
+        border-radius:10px; 
+        -webkit-box-shadow: inset 0 0 4px rgba(0,0,0,.2);
+        box-shadow: inset 0 0 4px rgba(0,0,0,.2)
+      }
+      ::-webkit-scrollbar-thumb {
+        height: 50px; 
+        width: 50px; 
+        background: rgba(0,0,0,.2); 
+        -webkit-border-radius: 8px; 
+        border-radius: 8px; 
+        -webkit-box-shadow: inset 0 0 4px rgba(0,0,0,.1);
+        box-shadow: inset 0 0 4px rgba(0,0,0,.1)
+      }
+
+      body {
+        padding: 10px;
+        min-width: 800px;
+        max-width: 1500px;
+        margin: auto;
+      }
+      #chart {
+        height: 440px;
+      }
+      .node rect {
+        fill-opacity: .9;
+        shape-rendering: crispEdges;
+        stroke-width: 0;
+      }
+      .node text {
+        text-shadow: 0 1px 0 #fff;
+      }
+      .link {
+        fill: none;
+        stroke: #000;
+        stroke-opacity: .2;
+      }
+      .ui-datepicker-trigger{
+        cursor: pointer;
+      }
+      .hasDatepicker{
+        cursor: pointer;
+      }
+
+      .loading-layer {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(68, 68, 68, 0.3);
+        z-index: 11111;
+      }
+      .loading-layer .loading-wrap {
+        display: table;
+        width: 100%;
+        height: 100%;
+      }
+      .loading-layer .loading-wrap .loading-text {
+        display: table-cell;
+        vertical-align: middle;
+        text-align: center;
+        color: #fff;
+        text-shadow: 2px 3px 2.6px #a2a2a2;
+        font-size: 3.8em;
+        position: relative;
+        top: -20px;
+      }
+      .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(1) {
+        animation: loading-01 0.82s infinite;
+      }
+      .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(2) {
+        animation: loading-02 0.82s infinite;
+      }
+      .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(3) {
+        animation: loading-03 0.82s infinite;
+      }
+
+      @keyframes loading-01 {
+          25% {
+              color: #000;
+          }
+          50% {
+              color: #fff;
+          }
+      }
+      @keyframes loading-02 {
+          50% {
+              color: #000;
+          }
+          75% {
+              color: #fff;
+          }
+      }
+      @keyframes loading-03 {
+          75% {
+              color: #000;
+          }
+          100% {
+              color: #fff;
+          }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="search">
+      <input 
+        type="text" 
+        id="processPlaceNo" 
+        placeholder="가공장코드" 
+        style="width:195px;height:30px;font-size:inherit;" 
+        onkeypress="if (event.keyCode == 13) search();" 
+      />
+      <input 
+        type="text" 
+        id="processDate" 
+        placeholder="가공일자" 
+        style="width:120px;height:30px;text-align:center;font-size:inherit;" 
+        readonly 
+      />
+      <button id="btnSearch" style="height:36px;font-size:inherit;" onclick="search();" />조회</button>
+      <hr/>
+    </div>
+    <div id="chart">
+      <span style="text-align:center;margin-top:250px;display:block;"><h1>검색결과가 없습니다.</h1></span>
+    </div>
+
+    <script>
+      $(document).ready(function(){
+        $("#processDate").datepicker({
+          dateFormat: 'yy-mm-dd', 
+          prevText: '이전 달', 
+          nextText: '다음 달', 
+          showMonthAfterYear: true, 
+          changeYear: true, 
+          changeMonth: true, 
+          monthNamesShort: ['1','2','3','4','5','6','7','8','9','10','11','12'], 
+          monthNames: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'], 
+          dayNamesMin: ['일','월','화','수','목','금','토'], 
+          dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'], 
+          yearSuffix: "년", 
+          showButtonPanel: true, 
+          closeText: 'Close', 
+          maxDate: "today"
+        }).datepicker('setDate', 'today');
+
+        $.datepicker._gotoToday = function(id) { 
+          $(id).datepicker('setDate', new Date()).datepicker('hide').blur();
+        }
+      })
+
+      var bcAuth = location.href.split("=")[1];
+      var data = {};
+
+      var colors = {
+        'cattleNo': '#edbd00',
+        'farm': '#367d85',
+        'butchery': '#97ba4c',
+        'process':  '#f5662b',
+        'market': '#3f3e47',
+        'fallback': '#9f9fa3'
+      };
+
+      if (bcAuth == undefined || bcAuth == null) {
+          $("#btnSearch").attr("disabled","disabled");
+          alert("비정상적인 접근입니다.");
+      }
+      
+      function search() {
+        var processPlaceNo = $('#processPlaceNo').val();
+        var processDate = $('#processDate').val();
+        
+        if (!processPlaceNo) {
+          alert("유효하지 않은 가공장코드 입니다.");
+          $('#chart').html(
+            "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+          );
+          $('#processPlaceNo').select();
+          return;
+        }
+
+        //Show LoadingBar
+        isloading.start();
+
+        $.ajax({
+          type: "GET",
+          dataType: "json",
+          url: "http://bc.nebis.co.kr:4000/channels/honeybeechannel/chaincodes/tracecc?args=%5B%22" + processPlaceNo + "%22%2C%22" + processDate + "%22%5D&fcn=queryDistributionFlow&peer=org2%2Fpeer0",
+          headers: {
+              'Authorization':'Bearer ' + bcAuth,
+              'Content-Type':'application/json'
+          },
+          success: function(args) {
+              if ($.isEmptyObject(args.result)) {
+                  $('#chart').html(
+                      "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+                  );
+              } else {
+                  $('#chart').empty();
+                  data = args.result;
+                  distributionFlow();
+              }
+              //Hide LoadingBar
+              isloading.stop();
+          },
+          error: function(error) {
+              console.error(error);
+              $('#chart').html(
+                  "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+              );
+
+              //Hide LoadingBar
+              isloading.stop();
+
+              if (error.status == 401) {
+                  alert("API 토큰이 만료되어 토큰을 재생성 합니다.");
+                  parent.window.location.reload();
+              }
+          }
+        });
+      }
+
+      function distributionFlow() {
+          var chart = d3.select("#chart").append("svg").chart("Sankey.Path");
+          chart
+            .name(label)
+            .colorNodes(function(name, node) {
+              return color(node, 1) || colors.fallback;
+            })
+            .colorLinks(function(link) {
+              return color(link.source, 4) || color(link.target, 1) || colors.fallback;
+            })
+            .nodeWidth(15)
+            .nodePadding(10)
+            .spread(true)
+            .iterations(0)
+            .draw(data);
+          function label(node) {
+            return node.name.split('-')[0].replace(/\s*\[.*?\]$/, '');
+          }
+          function color(node, depth) {
+            var id = node.name.split('-')[1];
+            if (colors[id]) {
+              return colors[id];
+            } else if (depth > 0 && node.targetLinks && node.targetLinks.length == 1) {
+              return color(node.targetLinks[0].source, depth-1);
+            } else {
+              return null;
+            }
+          }
+      }
+      
+      isloading = {
+        start: function() {
+            if (document.getElementById('wfLoading')) {
+              return;
+            }
+            var ele = document.createElement('div');
+            ele.setAttribute('id', 'wfLoading');
+            ele.classList.add('loading-layer');
+            ele.innerHTML = '<span class="loading-wrap"><span class="loading-text"><span>.</span><span>.</span><span>.</span></span></span>';
+            document.body.append(ele);
+
+            // Animation
+            ele.classList.add('active-loading');
+        },
+        stop: function() {
+          var ele = document.getElementById('wfLoading');
+          if (ele) {
+          ele.remove();
+          }
+        }
+      }
+
+    </script>
+  </body>
+</html>

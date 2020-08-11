@@ -1,0 +1,133 @@
+{
+  "network-configs": {
+    "network-1": {
+      "version": "1.0",
+      "clients": {
+        "client-1": {
+          "tlsEnable": true,
+          "organization": "org2MSP",
+          "channel": "honeybeechannel",
+          "credentialStore": {
+            "path": "./tmp/credentialStore_org2/credential",
+            "cryptoStore": {
+              "path": "./tmp/credentialStore_org2/crypto"
+            }
+          }
+        }
+      },
+      "channels": {
+        "honeybeechannel": {
+          "peers": {
+            "peer0.org2.honeybee.com": {}
+          },
+          "connection": {
+            "timeout": {
+              "peer": {
+                "endorser": "6000",
+                "eventHub": "6000",
+                "eventReg": "6000"
+              }
+            }
+          }
+        }
+      },
+      "organizations": {
+        "org2MSP": {
+          "mspid": "org2MSP",
+          "fullpath": false,
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org2.honeybee.com/users/Admin@org2.honeybee.com/msp/keystore"
+          },
+          "signedCert": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org2.honeybee.com/users/Admin@org2.honeybee.com/msp/signcerts"
+          }
+        },
+        "org1MSP": {
+          "mspid": "org1MSP",
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org1.honeybee.com/users/Admin@org1.honeybee.com/msp/keystore"
+          }
+        },
+        "org3MSP": {
+          "mspid": "org3MSP",
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org3.honeybee.com/users/Admin@org3.honeybee.com/msp/keystore"
+          }
+        },
+        "org4MSP": {
+          "mspid": "org4MSP",
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org4.honeybee.com/users/Admin@org4.honeybee.com/msp/keystore"
+          }
+        },
+        "org5MSP": {
+          "mspid": "org5MSP",
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org5.honeybee.com/users/Admin@org5.honeybee.com/msp/keystore"
+          }
+        },
+        "OrdererMSP": {
+          "mspid": "OrdererMSP",
+          "adminPrivateKey": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/ordererOrganizations/honeybee.com/users/Admin@honeybee.com/msp/keystore"
+          }
+        }
+      },
+      "peers": {
+        "peer0.org2.honeybee.com": {
+          "tlsCACerts": {
+            "path":
+              "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/artifacts/crypto-config/peerOrganizations/org2.honeybee.com/peers/peer0.org2.honeybee.com/tls/ca.crt"
+          },
+          "url": "grpcs://172.27.42.57:7051",
+          "eventUrl": "grpcs://172.27.42.57:7053",
+          "grpcOptions": {
+            "ssl-target-name-override": "peer0.org2.honeybee.com"
+          }
+        },
+        "peer1.org2.honeybee.com": {
+          "url": "grpcs://172.27.42.57:7056"
+        },
+        "peer0.org1.honeybee.com": {
+          "url": "grpcs://172.27.42.66:7051"
+        },
+        "peer1.org1.honeybee.com": {
+          "url": "grpcs://172.27.42.66:7056"
+        },
+        "peer0.org3.honeybee.com": {
+          "url": "grpcs://172.27.42.165:7051"
+        },
+        "peer1.org3.honeybee.com": {
+          "url": "grpcs://172.27.42.165:7056"
+        },
+        "peer0.org4.honeybee.com": {
+          "url": "grpcs://172.27.42.166:7051"
+        },
+        "peer1.org4.honeybee.com": {
+          "url": "grpcs://172.27.42.166:7056"
+        },
+        "peer0.org5.honeybee.com": {
+          "url": "grpcs://172.27.42.172:7051"
+        },
+        "peer1.org5.honeybee.com": {
+          "url": "grpcs://172.27.42.172:7056"
+        }
+      },
+      "orderers": {
+        "orderer.org2.honeybee.com": {
+          "url": "grpcs://172.27.42.57:7050"
+        }
+      }
+    }
+  },
+  "configtxgenToolPath":
+    "/opt/gopath/src/github.com/hyperledger/honeybee_1.2/network/bin",
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>포장육 모니터링</title>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px; 
+            height: 8px; 
+            border: 3px solid #fff;
+        }
+        ::-webkit-scrollbar-button:start:decrement, 
+        ::-webkit-scrollbar-button:end:increment {
+            display: block; 
+            height: 10px; 
+            background:#efefef
+        }
+        ::-webkit-scrollbar-track {
+            background: #efefef; 
+            -webkit-border-radius: 10px; 
+            border-radius:10px; 
+            -webkit-box-shadow: inset 0 0 4px rgba(0,0,0,.2);
+            box-shadow: inset 0 0 4px rgba(0,0,0,.2)
+        }
+        ::-webkit-scrollbar-thumb {
+            height: 50px; 
+            width: 50px; 
+            background: rgba(0,0,0,.2); 
+            -webkit-border-radius: 8px; 
+            border-radius: 8px; 
+            -webkit-box-shadow: inset 0 0 4px rgba(0,0,0,.1);
+            box-shadow: inset 0 0 4px rgba(0,0,0,.1)
+        }
+
+        .search {
+			width:100%;
+			float:left;
+			padding:3px;
+			margin-bottom:10px;
+        }
+        
+        svg {
+            pointer-events: all;
+        }
+        .link {
+            stroke-width: 1px;
+            stroke: #ddd;
+            fill: none;
+        }
+        .text {
+            font-family: "sans-serif";
+            font-size: 12px;
+        }
+        .hover {
+            stroke-width: 1.5px;
+            stroke: #2c3e50;
+        }
+        /*
+        .cert-root {
+            visibility: hidden;
+        }
+        */
+        .chart {
+            width: 100%;
+            height: 100%;
+            /*
+            border:1px solid;
+            */
+            /*
+            overflow: hidden
+            */
+            overflow-y: hidden;
+        }
+        div.tooltip {
+            position: absolute;
+            text-align: center;
+            max-width: 160px;
+            padding: 7px 10px;
+            font: 12px sans-serif;
+            color: white;
+            background: #111;
+            border: 0px;
+            border-radius: 2px;
+            pointer-events: none;
+            margin-top: 2px;
+        }
+        div.tooltip:before {
+            content: '';
+            position: absolute;
+            top: 0%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            width: 0; height: 0;
+            border-bottom: 8px solid #111;
+            border-right: 8px solid transparent;
+            border-left: 8px solid transparent;
+        }
+        
+        .loading-layer {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(68, 68, 68, 0.3);
+            z-index: 11111;
+        }
+        .loading-layer .loading-wrap {
+            display: table;
+            width: 100%;
+            height: 100%;
+        }
+        .loading-layer .loading-wrap .loading-text {
+            display: table-cell;
+            vertical-align: middle;
+            text-align: center;
+            color: #fff;
+            text-shadow: 2px 3px 2.6px #a2a2a2;
+            font-size: 3.8em;
+            position: relative;
+            top: -20px;
+        }
+        .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(1) {
+            animation: loading-01 0.82s infinite;
+        }
+        .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(2) {
+            animation: loading-02 0.82s infinite;
+        }
+        .loading-layer.active-loading .loading-wrap .loading-text span:nth-child(3) {
+            animation: loading-03 0.82s infinite;
+        }
+
+        @keyframes loading-01 {
+            25% {
+                color: #000;
+            }
+            50% {
+                color: #fff;
+            }
+        }
+        @keyframes loading-02 {
+            50% {
+                color: #000;
+            }
+            75% {
+                color: #fff;
+            }
+        }
+        @keyframes loading-03 {
+            75% {
+                color: #000;
+            }
+            100% {
+                color: #fff;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="search">
+    <input 
+        type="text" 
+        id="cattleNo" 
+        placeholder="이력번호 12자리" 
+        style="width:195px;height:30px;font-size:inherit;" 
+        onkeypress="if (event.keyCode == 13) search();"
+    />
+    <button id="btnSearch" style="height:36px;font-size:inherit;" onclick="search();" />조회</button>
+    <hr/>
+</div>
+<div class="chart">
+    <span style="text-align:center;margin-top:250px;display:block;"><h1>검색결과가 없습니다.</h1></span>
+</div>
+<script>
+var bcAuth = location.href.split("=")[1];
+var data = {};
+
+if (bcAuth == undefined || bcAuth == null) {
+    $("#btnSearch").attr("disabled","disabled");
+    alert("비정상적인 접근입니다.");
+}
+
+function search() {
+
+    var cattleNo = $('#cattleNo').val();
+    if (isNaN(cattleNo) || cattleNo.length !== 12 ) {
+        alert("유효하지 않은 개체식별번호 입니다.");
+        $('.chart').html(
+            "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+        );
+        $('#cattleNo').select();
+        return;
+    }
+
+    //Show LoadingBar
+    isloading.start();
+
+    $.ajax({
+        type: "GET",
+        dataType: "json",
+        url: "http://bc.nebis.co.kr:4000/channels/honeybeechannel/chaincodes/tracecc?args=%5B%22" + cattleNo + "%22%5D&fcn=queryCattleTraceGraph&peer=org2%2Fpeer0",
+        headers: {
+            'Authorization':'Bearer ' + bcAuth,
+            'Content-Type':'application/json'
+        },
+        success: function(args) {
+            if ($.isEmptyObject(args.result)) {
+                $('.chart').html(
+                    "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+                );
+            } else {
+                $('.chart').empty();
+                data = args.result;
+                //console.log(data);
+                cattleTrace();
+            }
+            //Hide LoadingBar
+            isloading.stop();
+        },
+        error: function(error) {
+            console.error(error);
+            $('.chart').html(
+                "<span style='text-align:center;margin-top:250px;display:block;'><h1>검색결과가 없습니다.</h1></span>"
+            );
+
+            //Hide LoadingBar
+            isloading.stop();
+
+            if (error.status == 401) {
+                alert("API 토큰이 만료되어 토큰을 재생성 합니다.");
+                parent.window.location.reload();
+            }
+        }
+    });
+
+}
+
+function cattleTrace() {
+    var levelWidth = [1];
+    var childCount = function(level, n) {
+        if(n.children && n.children.length > 0) {
+            if(levelWidth.length <= level + 1) levelWidth.push(0);
+            levelWidth[level+1] += n.children.length;
+            n.children.forEach(function(d) {
+            childCount(level + 1, d);
+            });
+        }
+    };
+    childCount(0, data);
+
+    var margin = {
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 200
+    }
+
+    var graph = {
+        width: levelWidth.length * 250,
+        height: d3.max(levelWidth) > 15 ? d3.max(levelWidth) * 30 : d3.max(levelWidth) * 50
+        //height: parent.document.getElementById("unitTraceTree").height - 60
+    };
+    
+    d3.selection.prototype.moveToFront = function() {
+        return this.each(function(){
+            this.parentNode.appendChild(this);
+        });
+    };
+
+    var zoom = d3.behavior.zoom()
+            .scaleExtent([1, 10])
+            .on("zoom", zoom);
+
+    var svg = d3.select(".chart").append("svg:svg")
+            .attr("width", graph.width + margin.right + margin.left)
+            .attr("height", graph.height)
+            .attr("class","drawarea")
+            .call(zoom)
+            .append("svg:g")
+            .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+
+    var diagonal = d3.svg.diagonal()
+            .projection(function(d)
+            {
+                return [d.y, d.x];
+            });
+    var tree = d3.layout.tree()
+            .size([graph.height - margin.top - margin.bottom, graph.width - margin.left - margin.right]);
+
+    var nodes = tree.nodes(data);
+    nodes = _.uniq(nodes, 'id');
+    /*
+    _.each(nodes, function (o , i) {
+        var itemsOfTheSameDepth = _.where(nodes, {depth: o.depth});
+        var indexOfCurrent = _.indexOf(itemsOfTheSameDepth, o);
+        var interval = graph.height / itemsOfTheSameDepth.length;
+        nodes[i].x = interval / 2 + (interval * indexOfCurrent);
+    });
+    */
+    //tooltip
+    var tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+    var links = tree.links(nodes);
+    _.each(links, function (o, i) {
+        links[i].target = _.find(nodes, {id: o.target.id});
+    });
+
+    var link = svg.selectAll("path")
+            .data(links)
+            .enter().append("svg:path")
+            .attr("class", function (d) {
+                return (!!d.source) ? d.source.id : "root";
+            })
+            .classed("link", true)
+            .attr("d", diagonal);
+    
+    var node = svg.selectAll('g.node')
+            .data(nodes)
+            .enter().append("svg:g")
+            .attr("transform", function (d) {
+                return "translate(" + d.y + "," + d.x + ")";
+            })
+            .on("mouseup", function (d) {
+                // remove all the colour paths
+                d3.selectAll('path.link').classed('hover', false);
+                // draw new colour paths
+                d3.selectAll("." + d.id)
+                        .classed("hover", true)
+                        .moveToFront();
+                _.pluck(d.children, 'id').forEach(function (id) {
+                    d3.selectAll('.' + id)
+                            .classed('hover', true)
+                            .moveToFront();
+                });
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                }
+            })
+            .on("mouseover", function (d) {
+                if (!!d.description) {
+                    tooltip.transition()
+                            .duration(200)
+                            .style("opacity",.9);
+                    tooltip.html(d.description)
+                            .style("left", d3.event.pageX + "px")
+                            .style("top", ((d3.event.pageY) + 8) + "px")
+                }
+            })
+            .on("mouseout", function (d) {
+                tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+            });
+
+    //var colors = d3.scale.category20();
+
+    node.append("svg:circle")
+            .attr("r", 5)
+            .attr("fill", function (d) {
+                return d.children ? "#fff" : "#fff978";
+            })
+            .attr("stroke", "orange")
+            .attr("stroke-width", "1.5px");
+
+    node.append("svg:text")
+            .attr("y", function(d) { return d.children ? (!d.depth ? 0 : -10) : 0; })
+            .attr("dx", function (d) {
+                return d.children ? -10: 10;
+            })
+            .attr("dy", 3)
+            .classed("text", true)
+            .attr("text-anchor", function (d) {
+                return d.children ? "end" : "start";
+            })
+            .text(function (d) {
+                return d.name;
+            });
+
+    function zoom() {
+        d3.select(".drawarea").attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    }
+}
+
+isloading = {
+    start: function() {
+        if (document.getElementById('wfLoading')) {
+            return;
+        }
+        var ele = document.createElement('div');
+        ele.setAttribute('id', 'wfLoading');
+        ele.classList.add('loading-layer');
+        ele.innerHTML = '<span class="loading-wrap"><span class="loading-text"><span>.</span><span>.</span><span>.</span></span></span>';
+        document.body.append(ele);
+
+        // Animation
+        ele.classList.add('active-loading');
+    },
+    stop: function() {
+        var ele = document.getElementById('wfLoading');
+        if (ele) {
+        ele.remove();
+        }
+    }
+}
+</script>
+</body>
+</html>
